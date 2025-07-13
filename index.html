@@ -191,27 +191,29 @@
             transform: translateY(0);
         }
 
-        /* Question UI */
+        /* Question UI – placerad lite högre så mobilen inte skär av sista knappen */
         .question-panel {
             position: absolute;
-            bottom: 0;
             left: 0;
             right: 0;
 
-            /* Utseende */
+            /* 🚀 Viktigt: lägg ett avstånd till OS-navigationslisten */
+            bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+
             background: rgba(0,0,0,0.8);
             backdrop-filter: blur(20px);
             padding: 30px;
 
-            /* Animation in/ut */
+            /* Glid-animation in/ut */
             transform: translateY(100%);
             transition: transform 0.5s ease;
 
-            /* 💡 NYTT: se till att allt får plats */
-            max-height: calc(100dvh - 160px);   /* 160 px ≈ header + lite marginal */
-            overflow-y: auto;                   /* om det ändå blir trångt – scrolla */
-            overscroll-behavior: contain;       /* stoppa “rubber-band” på iOS */
+            /* Höjdbegränsning – 180 px reserverat för header + marginaler */
+            max-height: calc(100dvh - 180px);
+            overflow-y: auto;
+            overscroll-behavior: contain;
         }
+
 
         .question-panel.active {
             transform: translateY(0);
