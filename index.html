@@ -1659,7 +1659,7 @@
             previewCurves.forEach(c => scene.remove(c));
             previewCurves = [];
 
-            chosen.forEach(({ key, destination, distance, transport, cost, canAfford }) => {
+            chosen.forEach(({ key, destination, distance, transport, cost, canAfford, visited }) => {
                 const curve = drawPreviewCurve(
                     here, destination,
                     canAfford ? 0x4ade80 : 0xff6b6b,
