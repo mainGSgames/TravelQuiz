@@ -197,11 +197,20 @@
             bottom: 0;
             left: 0;
             right: 0;
+
+            /* Utseende */
             background: rgba(0,0,0,0.8);
             backdrop-filter: blur(20px);
             padding: 30px;
+
+            /* Animation in/ut */
             transform: translateY(100%);
             transition: transform 0.5s ease;
+
+            /* 💡 NYTT: se till att allt får plats */
+            max-height: calc(100dvh - 160px);   /* 160 px ≈ header + lite marginal */
+            overflow-y: auto;                   /* om det ändå blir trångt – scrolla */
+            overscroll-behavior: contain;       /* stoppa “rubber-band” på iOS */
         }
 
         .question-panel.active {
@@ -1311,69 +1320,108 @@
         }
 
         // Show travel options
+        // Visar resealternativ med prisspridning:
+        // • 1 väldigt billig, 1 mellandyr, 1 dyr-men-överkomlig, +1 extra (prioriterar överkomliga).
+        // • Undviker oöverkomliga alternativ om det finns nog billiga.
+        // • Rubrik visar nu både plats och pengar.
         function showTravelOptions() {
-            const currentTeam = teams[currentTeamIndex];
+            const currentTeam   = teams[currentTeamIndex];
             const currentCoords = locations[currentTeam.currentLocation];
-            const ticketsGrid = document.getElementById('ticketsGrid');
+            const ticketsGrid   = document.getElementById('ticketsGrid');
             ticketsGrid.innerHTML = '';
-            
-            // Clear previous preview curves
-            previewCurves.forEach(curve => scene.remove(curve));
+
+            /* Rubrik med plats + pengar */
+            const headerEl = document.querySelector('#travelOptions h2');
+            headerEl.textContent =
+                `Current location: ${locations[currentTeam.currentLocation].name}. ` +
+                `Choose where you want to travel. You have $${currentTeam.money}.`;
+
+            /* Töm gamla bågar */
+            previewCurves.forEach(c => scene.remove(c));
             previewCurves = [];
-            
-            // Create array of destinations sorted by distance
-            const destinations = Object.entries(locations)
-                .filter(([key, _]) => key !== currentTeam.currentLocation)
-                .map(([key, destination]) => {
-                    const distance = calculateDistance(
-                        currentCoords.lat, 
-                        currentCoords.lon, 
-                        destination.lat, 
-                        destination.lon
+
+            /* Lista alla mål med pris & distans */
+            const all = Object.entries(locations)
+                .filter(([key]) => key !== currentTeam.currentLocation)
+                .map(([key, dest]) => {
+                    const distance  = calculateDistance(
+                        currentCoords.lat, currentCoords.lon,
+                        dest.lat,       dest.lon
                     );
-                    return { key, destination, distance };
+                    const transport = getTransport(distance);
+                    return {
+                        key, destination: dest, distance,
+                        transport,       cost: transport.cost,
+                        canAfford: currentTeam.money >= transport.cost
+                    };
                 })
-                .sort((a, b) => a.distance - b.distance);
-            
-            // Show closest 15 destinations
-            destinations.slice(0, 15).forEach(({ key, destination, distance }) => {
-                const transport = getTransport(distance);
-                const canAfford = currentTeam.money >= transport.cost;
-                
-                // Draw preview curve for this destination
-                const curveColor = canAfford ? 0x4ade80 : 0xff6b6b;
-                const curve = drawPreviewCurve(currentCoords, destination, curveColor, canAfford ? 0.5 : 0.2);
+                .sort((a, b) => a.cost - b.cost);         // billigt → dyrt
+
+            const affordable   = all.filter(d => d.canAfford);
+            const unaffordable = all.filter(d => !d.canAfford);
+            const chosen       = [];
+
+            /* Hjälpare som undviker dubbletter */
+            const addUnique = item =>
+                item && !chosen.some(c => c.key === item.key) && chosen.push(item);
+
+            if (affordable.length >= 3) {
+                addUnique(affordable[0]);                                 // 💸 billigaste
+                addUnique(affordable[Math.floor(affordable.length / 2)]); // 😎 mellan-pris
+                addUnique(affordable[affordable.length - 1]);             // 💰 dyrast – men överkomlig
+            } else {
+                affordable.forEach(addUnique);                            // Ta allt vi har råd med
+            }
+
+            /* Fyll upp till 4 med fler överkomliga, slumpad ordning */
+            const pool = affordable.filter(d => !chosen.includes(d));
+            while (chosen.length < 4 && pool.length) {
+                addUnique(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+            }
+
+            /* Om det ändå saknas alternativ – fyll med billigaste oöverkomliga */
+            let idx = 0;
+            while (chosen.length < 4 && idx < unaffordable.length) {
+                addUnique(unaffordable[idx++]);
+            }
+
+            /* Slumpa slutordning så listan inte känns riggad */
+            for (let i = chosen.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [chosen[i], chosen[j]] = [chosen[j], chosen[i]];
+            }
+
+            /* Rendera biljetter + förhandsbågar */
+            chosen.forEach(({ key, destination, distance, transport, cost, canAfford }) => {
+                const curve = drawPreviewCurve(
+                    currentCoords, destination,
+                    canAfford ? 0x4ade80 : 0xff6b6b,
+                    canAfford ? 0.5       : 0.2
+                );
                 previewCurves.push(curve);
-                
+
                 const ticket = document.createElement('div');
-                ticket.className = `ticket ${!canAfford ? 'disabled' : ''}`;
+                ticket.className = `ticket ${canAfford ? '' : 'disabled'}`;
                 ticket.innerHTML = `
                     <div class="ticket-icon">${transport.icon}</div>
                     <div class="ticket-destination">${destination.name}</div>
-                    <div style="font-size: 0.9em; color: #94a3b8;">${transport.name}</div>
+                    <div style="font-size:0.9em;color:#94a3b8;">${transport.name}</div>
                     <div class="ticket-distance">${Math.round(distance)} km</div>
-                    <div class="ticket-cost">${transport.cost}</div>
+                    <div class="ticket-cost">$${cost}</div>
                 `;
-                
+
                 if (canAfford) {
-                    ticket.onclick = () => travel(key, distance, transport.cost);
-                    
-                    // Highlight curve on hover
-                    ticket.onmouseenter = () => {
-                        curve.material.opacity = 0.8;
-                        curve.material.linewidth = 3;
-                    };
-                    ticket.onmouseleave = () => {
-                        curve.material.opacity = 0.5;
-                        curve.material.linewidth = 2;
-                    };
+                    ticket.onclick      = () => travel(key, distance, cost);
+                    ticket.onmouseenter = () => { curve.material.opacity = 0.8; curve.material.linewidth = 3; };
+                    ticket.onmouseleave = () => { curve.material.opacity = 0.5; curve.material.linewidth = 2; };
                 }
-                
+
                 ticketsGrid.appendChild(ticket);
             });
-            
+
             document.getElementById('travelOptions').classList.add('active');
         }
+
 
         // Draw preview curve
         function drawPreviewCurve(from, to, color, opacity) {
