@@ -1325,7 +1325,18 @@
                         'Entertainment', 'Food', 'Architecture', 'Nature', 'Economy'];
         const theme = themes[Math.floor(Math.random() * themes.length)];
         // “a little bit difficult” by default; crank it up for local-job challenges
-        const difficulty = isLocalJob ? 'hard' : 'medium-hard';
+
+        const lowestDistance = Math.min(...teams.map(t => t.totalDistance));
+
+        let difficulty;
+
+        if (currentTeam.totalDistance === lowestDistance) {
+            // Lägst distans? Hjälp balansera med en mellansvår fråga
+            difficulty = 'medium';
+        } else {
+            // Annars 50/50 mellan medium och medium-hard
+            difficulty = Math.random() < 0.5 ? 'medium' : 'medium-hard';
+        }
 
         // Strict JSON-only contract for Gemini
         const prompt = `Generate a ${difficulty} trivia question. \
