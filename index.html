@@ -429,6 +429,9 @@
             border: 2px solid #4ade80;
         }
 
+        .ticket.visited      { border: 2px dashed #f59e0b; }
+        .ticket .visited-tag { color:#fbbf24;font-size:.85em;margin-top:4px; }
+
         /* Responsive adjustments */
         @media (max-width: 768px) {
             .header {
@@ -956,10 +959,6 @@
         return JSON.stringify(data);   // generateQuestion() immediately JSON.parse(...)s it
         }
 
-
-
-
-
         // Transportation logic based on distance
         function getTransport(distance) {
             if (distance < 50) return { icon: '🚶', name: 'Walking', cost: 0 };
@@ -1462,7 +1461,7 @@
                     currentTeam.money += earnings;
                     if (clickedButton) clickedButton.classList.add('correct');
                 } else {
-                    const earnings = 200; // Minimum earnings for trying
+                    const earnings = 100; // Minimum earnings for trying
                     currentTeam.money += earnings;
                     if (clickedButton) clickedButton.classList.add('incorrect');
                 }
@@ -1470,7 +1469,7 @@
             } else if (pendingDestination) {
                 // Travel question
                 if (isCorrect) {
-                    currentTeam.money += 300; // Bonus for correct answer
+                    if (!alreadyVisited) currentTeam.money += 300; // Bonus for correct answer
                     if (clickedButton) clickedButton.classList.add('correct');
                     
                     // Execute the travel
@@ -1572,6 +1571,7 @@
             const all = Object.entries(locations)
                 .filter(([key]) => key !== currentTeam.currentLocation)
                 .map(([key, dest]) => {
+                    const alreadyVisited = currentTeam.locations.includes(key);
                     const distance  = calculateDistance(here.lat, here.lon, dest.lat, dest.lon);
                     const transport = getTransport(distance);
                     return {
@@ -1580,6 +1580,7 @@
                         distance,
                         transport,
                         cost: transport.cost,
+                        visited: alreadyVisited,
                         canAfford: currentTeam.money >= transport.cost,
                         isWest:  deltaLon(dest.lon, here.lon) < 0,
                         isEast:  deltaLon(dest.lon, here.lon) > 0
@@ -1667,13 +1668,14 @@
                 previewCurves.push(curve);
 
                 const el = document.createElement('div');
-                el.className = `ticket ${canAfford ? '' : 'disabled'}`;
+                el.className = `ticket ${visited ? 'visited' : ''} ${canAfford ? '' : 'disabled'}`;
                 el.innerHTML = `
                     <div class="ticket-icon">${transport.icon}</div>
                     <div class="ticket-destination">${destination.name}</div>
                     <div style="font-size:0.9em;color:#94a3b8;">${transport.name}</div>
                     <div class="ticket-distance">${Math.round(distance)} km</div>
                     <div class="ticket-cost">$${cost}</div>
+                    ${visited ? '<div class="visited-tag">⭐ Visited</div>' : ''}
                 `;
                 if (canAfford) {
                     el.onclick      = () => travel(key, distance, cost);
