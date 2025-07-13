@@ -309,14 +309,14 @@
             gap: 20px;
         }
 
-        .ticket {
-            background: rgba(255,255,255,0.1);
-            padding: 20px;
-            border-radius: 15px;
-            border: 2px solid rgba(255,255,255,0.3);
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s;
+        .ticket{
+            /*  Ikon vänster, info höger  */
+            display:grid;
+            grid-template-columns:auto 1fr;     /* [ikon] [text-kolumn] */
+            grid-template-rows:repeat(4,auto);  /* destination, färdmedel, distans, pris */
+            gap:4px 14px;                       /* lite luft mellan ikon & text */
+            align-items:center;
+            padding:15px 18px;                  /* lägre padding = lägre höjd */
         }
 
         .ticket:hover {
@@ -332,15 +332,15 @@
             box-shadow: none !important;
         }
 
-        .ticket-icon {
-            font-size: 3em;
-            margin-bottom: 10px;
+        .ticket-icon{
+            grid-row:1 / -1;                    /* låt ikonen spänna alla rader */
+            font-size:2.2em;                    /* lagom stor men inte y-slukande */
+            margin:0;                           /* slopa bottenmarginalen */
         }
 
-        .ticket-destination {
-            font-size: 1.2em;
-            font-weight: bold;
-            margin-bottom: 5px;
+        .ticket-destination{
+            font-size:1.1em;
+            font-weight:600;
         }
 
         .ticket-distance {
@@ -351,6 +351,7 @@
         .ticket-cost {
             color: #4ade80;
             font-size: 1.1em;
+            margin:0;
         }
 
         /* Location Info */
