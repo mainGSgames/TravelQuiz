@@ -1469,6 +1469,7 @@
             } else if (pendingDestination) {
                 // Travel question
                 if (isCorrect) {
+                    const alreadyVisited = currentTeam.locations.includes(pendingDestination.key);
                     if (!alreadyVisited) currentTeam.money += 300; // Bonus for correct answer
                     if (clickedButton) clickedButton.classList.add('correct');
                     
