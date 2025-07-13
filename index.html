@@ -1546,108 +1546,150 @@
             showQuestion();
         }
 
-        // Show travel options
-        // Visar resealternativ med prisspridning:
-        // • 1 väldigt billig, 1 mellandyr, 1 dyr-men-överkomlig, +1 extra (prioriterar överkomliga).
-        // • Undviker oöverkomliga alternativ om det finns nog billiga.
-        // • Rubrik visar nu både plats och pengar.
+       // ─────────────────────────────────────────────────────────────
+        //  Travel options → always at least one WEST and one EAST pick
+        // ─────────────────────────────────────────────────────────────
         function showTravelOptions() {
             const currentTeam   = teams[currentTeamIndex];
-            const currentCoords = locations[currentTeam.currentLocation];
+            const here          = locations[currentTeam.currentLocation];
+
             const ticketsGrid   = document.getElementById('ticketsGrid');
             ticketsGrid.innerHTML = '';
 
-            /* Rubrik med plats + pengar */
-            const headerEl = document.querySelector('#travelOptions h2');
-            headerEl.textContent =
-                `Current location: ${locations[currentTeam.currentLocation].name}. ` +
-                `Choose where you want to travel. You have $${currentTeam.money}.`;
+            /* -----------------------------------------
+            * Helper: normalise Δlon to the range –180…+180
+            * ----------------------------------------- */
+            const deltaLon = (lonA, lonB) => {
+                let d = lonA - lonB;
+                if (d >  180) d -= 360;
+                if (d < -180) d += 360;
+                return d;              // west  ⇢  negative,  east ⇢  positive
+            };
 
-            /* Töm gamla bågar */
-            previewCurves.forEach(c => scene.remove(c));
-            previewCurves = [];
-
-            /* Lista alla mål med pris & distans */
+            /* -----------------------------------------
+            * 1) Build master list (as before)
+            * ----------------------------------------- */
             const all = Object.entries(locations)
                 .filter(([key]) => key !== currentTeam.currentLocation)
                 .map(([key, dest]) => {
-                    const distance  = calculateDistance(
-                        currentCoords.lat, currentCoords.lon,
-                        dest.lat,       dest.lon
-                    );
+                    const distance  = calculateDistance(here.lat, here.lon, dest.lat, dest.lon);
                     const transport = getTransport(distance);
                     return {
-                        key, destination: dest, distance,
-                        transport,       cost: transport.cost,
-                        canAfford: currentTeam.money >= transport.cost
+                        key,
+                        destination: dest,
+                        distance,
+                        transport,
+                        cost: transport.cost,
+                        canAfford: currentTeam.money >= transport.cost,
+                        isWest:  deltaLon(dest.lon, here.lon) < 0,
+                        isEast:  deltaLon(dest.lon, here.lon) > 0
                     };
                 })
-                .sort((a, b) => a.cost - b.cost);         // billigt → dyrt
+                .sort((a, b) => a.cost - b.cost);  // cheapest → priciest
 
-            const affordable   = all.filter(d => d.canAfford);
-            const unaffordable = all.filter(d => !d.canAfford);
-            const chosen       = [];
+            const affordable   = all.filter(x => x.canAfford);
+            const unaffordable = all.filter(x => !x.canAfford);
 
-            /* Hjälpare som undviker dubbletter */
-            const addUnique = item =>
-                item && !chosen.some(c => c.key === item.key) && chosen.push(item);
+            /* -----------------------------------------
+            * 2) Core selection logic (your old scheme)
+            * ----------------------------------------- */
+            const chosen = [];
+            const addUnique = (obj) => {
+                if (obj && !chosen.some(c => c.key === obj.key)) chosen.push(obj);
+            };
 
             if (affordable.length >= 3) {
-                addUnique(affordable[0]);                                 // 💸 billigaste
-                addUnique(affordable[Math.floor(affordable.length / 2)]); // 😎 mellan-pris
-                addUnique(affordable[affordable.length - 1]);             // 💰 dyrast – men överkomlig
+                addUnique(affordable[0]);                               // super-cheap
+                addUnique(affordable[Math.floor(affordable.length/2)]); // mid-price
+                addUnique(affordable[affordable.length-1]);             // top affordable
             } else {
-                affordable.forEach(addUnique);                            // Ta allt vi har råd med
+                affordable.forEach(addUnique);
             }
 
-            /* Fyll upp till 4 med fler överkomliga, slumpad ordning */
-            const pool = affordable.filter(d => !chosen.includes(d));
+            // fill up to 4 with random affordable picks
+            const pool = affordable.filter(x => !chosen.includes(x));
             while (chosen.length < 4 && pool.length) {
-                addUnique(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+                addUnique(pool.splice(Math.floor(Math.random()*pool.length), 1)[0]);
             }
 
-            /* Om det ändå saknas alternativ – fyll med billigaste oöverkomliga */
-            let idx = 0;
-            while (chosen.length < 4 && idx < unaffordable.length) {
-                addUnique(unaffordable[idx++]);
+            // still short? pad with cheapest unaffordable
+            let uaIdx = 0;
+            while (chosen.length < 4 && uaIdx < unaffordable.length) {
+                addUnique(unaffordable[uaIdx++]);
             }
 
-            /* Slumpa slutordning så listan inte känns riggad */
-            for (let i = chosen.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
+            /* -----------------------------------------
+            * 3) Directional guarantee 👈👉
+            * ----------------------------------------- */
+            const ensureDirection = (wantWest) => {
+                const hasDir = chosen.some(x => wantWest ? x.isWest : x.isEast);
+                if (hasDir) return;  // nothing to do
+
+                // candidate pool: try affordable first, else any
+                const dirPool = (wantWest
+                    ? affordable.filter(x => x.isWest)
+                    : affordable.filter(x => x.isEast))
+                    .concat( wantWest
+                        ? all.filter(x => x.isWest && !x.canAfford)
+                        : all.filter(x => x.isEast && !x.canAfford) );
+
+                if (!dirPool.length) return;  // no such cities on the planet? Unlikely.
+
+                const replacement = dirPool[0];               // cheapest of that direction
+                // kick out the priciest already-chosen ticket to stay at 4 options
+                chosen.sort((a,b) => b.cost - a.cost);
+                chosen[0] = replacement;
+            };
+
+            ensureDirection(true);   // make sure we have ≥1 WEST
+            ensureDirection(false);  // make sure we have ≥1 EAST
+
+            /* -----------------------------------------
+            * 4) Shuffle final four so UI doesn’t look rigged
+            * ----------------------------------------- */
+            for (let i = chosen.length-1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i+1));
                 [chosen[i], chosen[j]] = [chosen[j], chosen[i]];
             }
 
-            /* Rendera biljetter + förhandsbågar */
+            /* -----------------------------------------
+            * 5) Render tickets & preview curves (unchanged)
+            * ----------------------------------------- */
+            previewCurves.forEach(c => scene.remove(c));
+            previewCurves = [];
+
             chosen.forEach(({ key, destination, distance, transport, cost, canAfford }) => {
                 const curve = drawPreviewCurve(
-                    currentCoords, destination,
+                    here, destination,
                     canAfford ? 0x4ade80 : 0xff6b6b,
                     canAfford ? 0.5       : 0.2
                 );
                 previewCurves.push(curve);
 
-                const ticket = document.createElement('div');
-                ticket.className = `ticket ${canAfford ? '' : 'disabled'}`;
-                ticket.innerHTML = `
+                const el = document.createElement('div');
+                el.className = `ticket ${canAfford ? '' : 'disabled'}`;
+                el.innerHTML = `
                     <div class="ticket-icon">${transport.icon}</div>
                     <div class="ticket-destination">${destination.name}</div>
                     <div style="font-size:0.9em;color:#94a3b8;">${transport.name}</div>
                     <div class="ticket-distance">${Math.round(distance)} km</div>
                     <div class="ticket-cost">$${cost}</div>
                 `;
-
                 if (canAfford) {
-                    ticket.onclick      = () => travel(key, distance, cost);
-                    ticket.onmouseenter = () => { curve.material.opacity = 0.8; curve.material.linewidth = 3; };
-                    ticket.onmouseleave = () => { curve.material.opacity = 0.5; curve.material.linewidth = 2; };
+                    el.onclick      = () => travel(key, distance, cost);
+                    el.onmouseenter = () => { curve.material.opacity = 0.8; };
+                    el.onmouseleave = () => { curve.material.opacity = 0.5; };
                 }
-
-                ticketsGrid.appendChild(ticket);
+                ticketsGrid.appendChild(el);
             });
+
+            /* Header blurb */
+            document.querySelector('#travelOptions h2').textContent =
+                `Current location: ${here.name}. Choose your next move – $${currentTeam.money} in the kitty.`;
 
             document.getElementById('travelOptions').classList.add('active');
         }
+
 
 
         // Draw preview curve
