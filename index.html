@@ -1,0 +1,1618 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backpacker AI Quiz</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        #gameContainer {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        .ui-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .ui-overlay > * {
+            pointer-events: auto;
+        }
+
+        /* Header UI */
+        .header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 20px;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .team-info {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            padding: 15px 20px;
+            border-radius: 15px;
+            border: 1px solid rgba(255,255,255,0.2);
+            min-width: 200px;
+            transition: all 0.3s ease;
+        }
+
+        .team-name {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .team-money {
+            color: #4ade80;
+            font-size: 1.1em;
+        }
+
+        .team-distance {
+            color: #fbbf24;
+            font-size: 0.9em;
+            margin-top: 3px;
+        }
+
+        .team-location {
+            color: #94a3b8;
+            font-size: 0.8em;
+            margin-top: 2px;
+        }
+
+        .turn-info {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            padding: 15px 20px;
+            border-radius: 15px;
+            border: 1px solid rgba(255,255,255,0.2);
+            text-align: center;
+        }
+
+        .turns-remaining {
+            font-size: 0.9em;
+            color: #fbbf24;
+            margin-top: 5px;
+        }
+
+        /* Setup Screen */
+        .setup-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .setup-content {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(20px);
+            padding: 40px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.2);
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .setup-content h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            background: linear-gradient(45deg, #4ade80, #60a5fa);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .team-setup {
+            margin-bottom: 20px;
+            padding: 20px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+        }
+
+        .team-setup input {
+            width: 100%;
+            padding: 12px;
+            margin-top: 10px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 8px;
+            color: white;
+            font-size: 1em;
+        }
+
+        .team-setup input::placeholder {
+            color: rgba(255,255,255,0.5);
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #4ade80, #22c55e);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 20px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        /* Question UI */
+        .question-panel {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(20px);
+            padding: 30px;
+            transform: translateY(100%);
+            transition: transform 0.5s ease;
+        }
+
+        .question-panel.active {
+            transform: translateY(0);
+        }
+
+        .question-text {
+            font-size: 1.3em;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .answers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .answer-btn {
+            background: rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .answer-btn:hover {
+            background: rgba(255,255,255,0.2);
+            border-color: #60a5fa;
+            transform: scale(1.02);
+        }
+
+        .answer-btn.correct {
+            background: rgba(74, 222, 128, 0.3);
+            border-color: #4ade80;
+        }
+
+        .answer-btn.incorrect {
+            background: rgba(248, 113, 113, 0.3);
+            border-color: #f87171;
+        }
+
+        /* Travel Options */
+        .travel-options {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            background: rgba(0,0,0,0.9);
+            backdrop-filter: blur(20px);
+            padding: 40px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.2);
+            transition: transform 0.5s ease;
+            z-index: 5;
+            max-width: 90%;
+            width: 900px;
+            max-height: 90%;
+            overflow-y: auto;
+        }
+
+        .travel-options.active {
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        .travel-options h2 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2em;
+        }
+
+        .local-job-option {
+            background: linear-gradient(45deg, #3b82f6, #2563eb);
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            margin-bottom: 30px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .local-job-option:hover {
+            transform: scale(1.02);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+        }
+
+        .tickets-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .ticket {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 15px;
+            border: 2px solid rgba(255,255,255,0.3);
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .ticket:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+        }
+
+        .ticket.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        .ticket-icon {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+
+        .ticket-destination {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .ticket-distance {
+            color: #fbbf24;
+            margin-bottom: 10px;
+        }
+
+        .ticket-cost {
+            color: #4ade80;
+            font-size: 1.1em;
+        }
+
+        /* Location Info */
+        .location-info {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(10px);
+            padding: 15px 30px;
+            border-radius: 15px;
+            text-align: center;
+            pointer-events: none;
+        }
+
+        .location-name {
+            font-size: 1.3em;
+            font-weight: bold;
+        }
+
+        /* Game Over Screen */
+        .game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+        }
+
+        .game-over.active {
+            display: flex;
+        }
+
+        .game-over-content {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(20px);
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 600px;
+            width: 90%;
+        }
+
+        .game-over h1 {
+            font-size: 3em;
+            margin-bottom: 30px;
+            background: linear-gradient(45deg, #fbbf24, #f59e0b);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .final-scores {
+            margin: 30px 0;
+        }
+
+        .score-item {
+            background: rgba(255,255,255,0.05);
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .winner {
+            background: rgba(74, 222, 128, 0.2);
+            border: 2px solid #4ade80;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .header {
+                padding: 10px;
+            }
+            
+            .team-info, .turn-info {
+                padding: 10px 15px;
+                min-width: auto;
+            }
+            
+            .question-panel {
+                padding: 20px;
+            }
+            
+            .answers-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .tickets-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (orientation: landscape) and (max-height: 500px) {
+            .header {
+                padding: 5px 20px;
+            }
+            
+            .question-panel {
+                padding: 15px;
+            }
+            
+            .question-text {
+                font-size: 1.1em;
+                margin-bottom: 10px;
+            }
+            
+            .answer-btn {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="canvas"></canvas>
+        
+        <div class="ui-overlay">
+            <!-- Header UI -->
+            <div class="header" id="header" style="display: none;">
+                <div id="teamInfoContainer"></div>
+                <div class="turn-info">
+                    <div>Turn <span id="currentTurn">1</span> / <span id="maxTurns">20</span></div>
+                    <div class="turns-remaining">Turns left: <span id="turnsLeft">19</span></div>
+                </div>
+            </div>
+
+            <!-- Location Info -->
+            <div class="location-info" id="locationInfo" style="display: none;">
+                <div class="location-name" id="locationName"></div>
+            </div>
+
+            <!-- Question Panel -->
+            <div class="question-panel" id="questionPanel">
+                <div class="question-text" id="questionText"></div>
+                <div class="answers-grid" id="answersGrid"></div>
+                <div style="text-align: center; color: #94a3b8; font-size: 0.9em;">
+                    Time remaining: <span id="timer">30</span>s
+                </div>
+            </div>
+
+            <!-- Travel Options -->
+            <div class="travel-options" id="travelOptions">
+                <h2>Choose Your Next Move</h2>
+                <div class="local-job-option" onclick="takeLocalJob()">
+                    <div style="font-size: 2em;">💼</div>
+                    <div style="font-size: 1.2em; font-weight: bold;">Take a Local Job</div>
+                    <div style="color: #94a3b8;">Answer a harder question to earn extra money</div>
+                    <div style="color: #4ade80; margin-top: 10px;">Potential earnings: $200-800</div>
+                </div>
+                <div class="tickets-grid" id="ticketsGrid"></div>
+            </div>
+        </div>
+
+        <!-- Setup Screen -->
+        <div class="setup-screen" id="setupScreen">
+            <div class="setup-content">
+                <h1>🌍 Backpacker Quiz</h1>
+                <div id="teamSetupContainer">
+                    <div class="team-setup">
+                        <label>Team 1 Name:</label>
+                        <input type="text" id="team1Name" placeholder="Enter team name" value="Team 1">
+                    </div>
+                    <div class="team-setup">
+                        <label>Team 2 Name:</label>
+                        <input type="text" id="team2Name" placeholder="Enter team name" value="Team 2">
+                    </div>
+                </div>
+                <label>Number of Teams:</label>
+                <select id="teamCount" style="width: 100%; padding: 12px; margin: 10px 0; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; color: white; font-size: 1em;">
+                    <option value="2">2 Teams</option>
+                    <option value="3">3 Teams</option>
+                    <option value="4">4 Teams</option>
+                </select>
+                <button class="btn" onclick="startGame()">Start Adventure!</button>
+            </div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div class="game-over" id="gameOverScreen">
+            <div class="game-over-content">
+                <h1>🏆 Game Over!</h1>
+                <div class="final-scores" id="finalScores"></div>
+                <button class="btn" onclick="location.reload()">Play Again</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Game state
+        let scene, camera, renderer, globe;
+        let teams = [];
+        let currentTeamIndex = 0;
+        let currentTurn = 1;
+        let maxTurns = 20;
+        let questionTimer;
+        let markers = [];
+        let cityDots = [];
+        let cityLabels = [];
+        let teamLabels = [];
+        let travelLines = [];
+        let previewCurves = [];
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+        let isLocalJob = false;
+        let pendingDestination = null;
+        let isAnimatingRotation = false;
+
+        // Expanded locations with more cities
+        const locations = {
+            // Europe
+            stockholm: { name: "Stockholm, Sweden", lat: 59.3293, lon: 18.0686 },
+            oslo: { name: "Oslo, Norway", lat: 59.9139, lon: 10.7522 },
+            copenhagen: { name: "Copenhagen, Denmark", lat: 55.6761, lon: 12.5683 },
+            helsinki: { name: "Helsinki, Finland", lat: 60.1699, lon: 24.9384 },
+            berlin: { name: "Berlin, Germany", lat: 52.5200, lon: 13.4050 },
+            hamburg: { name: "Hamburg, Germany", lat: 53.5511, lon: 9.9937 },
+            amsterdam: { name: "Amsterdam, Netherlands", lat: 52.3676, lon: 4.9041 },
+            brussels: { name: "Brussels, Belgium", lat: 50.8503, lon: 4.3517 },
+            paris: { name: "Paris, France", lat: 48.8566, lon: 2.3522 },
+            lyon: { name: "Lyon, France", lat: 45.7640, lon: 4.8357 },
+            barcelona: { name: "Barcelona, Spain", lat: 41.3851, lon: 2.1734 },
+            madrid: { name: "Madrid, Spain", lat: 40.4168, lon: -3.7038 },
+            lisbon: { name: "Lisbon, Portugal", lat: 38.7223, lon: -9.1393 },
+            rome: { name: "Rome, Italy", lat: 41.9028, lon: 12.4964 },
+            milan: { name: "Milan, Italy", lat: 45.4642, lon: 9.1900 },
+            vienna: { name: "Vienna, Austria", lat: 48.2082, lon: 16.3738 },
+            prague: { name: "Prague, Czech Republic", lat: 50.0755, lon: 14.4378 },
+            warsaw: { name: "Warsaw, Poland", lat: 52.2297, lon: 21.0122 },
+            budapest: { name: "Budapest, Hungary", lat: 47.4979, lon: 19.0402 },
+            athens: { name: "Athens, Greece", lat: 37.9838, lon: 23.7275 },
+            istanbul: { name: "Istanbul, Turkey", lat: 41.0082, lon: 28.9784 },
+            moscow: { name: "Moscow, Russia", lat: 55.7558, lon: 37.6173 },
+            london: { name: "London, UK", lat: 51.5074, lon: -0.1278 },
+            edinburgh: { name: "Edinburgh, UK", lat: 55.9533, lon: -3.1883 },
+            dublin: { name: "Dublin, Ireland", lat: 53.3498, lon: -6.2603 },
+            
+            // Americas
+            newyork: { name: "New York, USA", lat: 40.7128, lon: -74.0060 },
+            boston: { name: "Boston, USA", lat: 42.3601, lon: -71.0589 },
+            washington: { name: "Washington DC, USA", lat: 38.9072, lon: -77.0369 },
+            miami: { name: "Miami, USA", lat: 25.7617, lon: -80.1918 },
+            chicago: { name: "Chicago, USA", lat: 41.8781, lon: -87.6298 },
+            losangeles: { name: "Los Angeles, USA", lat: 34.0522, lon: -118.2437 },
+            sanfrancisco: { name: "San Francisco, USA", lat: 37.7749, lon: -122.4194 },
+            seattle: { name: "Seattle, USA", lat: 47.6062, lon: -122.3321 },
+            vancouver: { name: "Vancouver, Canada", lat: 49.2827, lon: -123.1207 },
+            toronto: { name: "Toronto, Canada", lat: 43.6532, lon: -79.3832 },
+            montreal: { name: "Montreal, Canada", lat: 45.5017, lon: -73.5673 },
+            mexicocity: { name: "Mexico City, Mexico", lat: 19.4326, lon: -99.1332 },
+            havana: { name: "Havana, Cuba", lat: 23.1136, lon: -82.3666 },
+            buenosaires: { name: "Buenos Aires, Argentina", lat: -34.6037, lon: -58.3816 },
+            santiago: { name: "Santiago, Chile", lat: -33.4489, lon: -70.6693 },
+            lima: { name: "Lima, Peru", lat: -12.0464, lon: -77.0428 },
+            bogota: { name: "Bogotá, Colombia", lat: 4.7110, lon: -74.0721 },
+            riodejaneiro: { name: "Rio de Janeiro, Brazil", lat: -22.9068, lon: -43.1729 },
+            saopaulo: { name: "São Paulo, Brazil", lat: -23.5505, lon: -46.6333 },
+            
+            // Asia
+            tokyo: { name: "Tokyo, Japan", lat: 35.6762, lon: 139.6503 },
+            osaka: { name: "Osaka, Japan", lat: 34.6937, lon: 135.5023 },
+            kyoto: { name: "Kyoto, Japan", lat: 35.0116, lon: 135.7681 },
+            seoul: { name: "Seoul, South Korea", lat: 37.5665, lon: 126.9780 },
+            beijing: { name: "Beijing, China", lat: 39.9042, lon: 116.4074 },
+            shanghai: { name: "Shanghai, China", lat: 31.2304, lon: 121.4737 },
+            hongkong: { name: "Hong Kong", lat: 22.3193, lon: 114.1694 },
+            taipei: { name: "Taipei, Taiwan", lat: 25.0330, lon: 121.5654 },
+            bangkok: { name: "Bangkok, Thailand", lat: 13.7563, lon: 100.5018 },
+            singapore: { name: "Singapore", lat: 1.3521, lon: 103.8198 },
+            kualalumpur: { name: "Kuala Lumpur, Malaysia", lat: 3.1390, lon: 101.6869 },
+            jakarta: { name: "Jakarta, Indonesia", lat: -6.2088, lon: 106.8456 },
+            manila: { name: "Manila, Philippines", lat: 14.5995, lon: 120.9842 },
+            hanoi: { name: "Hanoi, Vietnam", lat: 21.0285, lon: 105.8542 },
+            newdelhi: { name: "New Delhi, India", lat: 28.6139, lon: 77.2090 },
+            mumbai: { name: "Mumbai, India", lat: 19.0760, lon: 72.8777 },
+            dubai: { name: "Dubai, UAE", lat: 25.2048, lon: 55.2708 },
+            
+            // Africa & Oceania
+            cairo: { name: "Cairo, Egypt", lat: 30.0444, lon: 31.2357 },
+            capetown: { name: "Cape Town, South Africa", lat: -33.9249, lon: 18.4241 },
+            johannesburg: { name: "Johannesburg, South Africa", lat: -26.2041, lon: 28.0473 },
+            nairobi: { name: "Nairobi, Kenya", lat: -1.2921, lon: 36.8219 },
+            sydney: { name: "Sydney, Australia", lat: -33.8688, lon: 151.2093 },
+            melbourne: { name: "Melbourne, Australia", lat: -37.8136, lon: 144.9631 },
+            auckland: { name: "Auckland, New Zealand", lat: -36.8485, lon: 174.7633 }
+        };
+		
+		/* ---------------------------------------------
+		 * Gemini 2.5 Flash helper
+		 * --------------------------------------------- */
+		const GEMINI_MODEL_ID = 'gemini-2.5-flash';
+
+		function getGeminiApiKey() {
+		  let key = localStorage.getItem('gemini_api_key');
+		  if (!key) {
+			key = prompt('Enter your Gemini API key');
+			if (key) localStorage.setItem('gemini_api_key', key);
+		  }
+		  return key;
+		}
+
+		// Tiny shortcut for changing the key (Ctrl + K)
+		document.addEventListener('keydown', (e) => {
+		  if (e.ctrlKey && e.key.toLowerCase() === 'k') {
+			localStorage.removeItem('gemini_api_key');
+			alert('Gemini key cleared � you�ll be prompted again on the next turn.');
+		  }
+		});
+
+        /* -------------------------------------------------
+        * Gemini 2.5 Flash helper  –  verbose debug edition
+        * ------------------------------------------------- */
+        /* -------------------------------------------------
+        * Gemini 2.5 Flash helper – array-aware, resilient
+        * ------------------------------------------------- */
+        async function geminiStreamJSON(promptText, _retry = false) {
+        const apiKey = getGeminiApiKey();
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_ID}:streamGenerateContent?key=${apiKey}`;
+
+        const payload = {
+            contents: [{ role: 'user', parts: [{ text: promptText }] }],
+            generationConfig: { responseMimeType: 'text/plain' }  // safest
+        };
+
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error(`Gemini error: ${res.status}`);
+
+        /* Read full stream into one big string */
+        const reader  = res.body.getReader();
+        const decoder = new TextDecoder();
+        let raw = '';
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            raw += decoder.decode(value, { stream: true });
+        }
+
+        /* -------- 1️⃣ try: raw string is already a JSON array -------- */
+        try {
+            const arr = JSON.parse(raw.trim());        // may throw
+            const combined = arr
+            .map(o => o?.candidates?.[0]?.content?.parts?.[0]?.text ?? '')
+            .join('');
+            return extractInnerJSON(combined);
+        } catch (e1) {
+            console.warn('[gemini] array parse failed:', e1);
+        }
+
+        /* -------- 2️⃣ try: crop from first { to last } in raw -------- */
+        try {
+            const cropped = raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1);
+            const obj     = JSON.parse(cropped);
+            const firstText = obj?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+            return extractInnerJSON(firstText);
+        } catch (e2) {
+            if (!_retry) {
+            console.warn('[gemini] brace-crop parse failed – retrying once…', e2);
+            return geminiStreamJSON(promptText, true);
+            }
+            throw e2;   // generateQuestion() will fall back
+        }
+        }
+
+        /* Helper: strip ``` fences & parse the embedded JSON */
+        function extractInnerJSON(text) {
+        // remove ```json … ``` or ``` … ```
+        const cleaned = text.replace(/```json|```/gi, '').trim();
+        const first   = cleaned.indexOf('{');
+        const last    = cleaned.lastIndexOf('}');
+        const jsonStr = cleaned.slice(first, last + 1);
+        const data    = JSON.parse(jsonStr);
+
+        // final sanity check
+        if (!data?.question || !Array.isArray(data.answers) || data.answers.length !== 4)
+            throw new Error('Malformed trivia JSON');
+        return JSON.stringify(data);   // generateQuestion() immediately JSON.parse(...)s it
+        }
+
+
+
+
+
+        // Transportation logic based on distance
+        function getTransport(distance) {
+            if (distance < 50) return { icon: '🚶', name: 'Walking', cost: 0 };
+            if (distance < 150) return { icon: '🚴', name: 'Bicycle', cost: 20 + Math.floor(distance / 3) };
+            if (distance < 300) return { icon: '🚌', name: 'Bus', cost: 50 + Math.floor(distance / 4) };
+            if (distance < 600) return { icon: '🚗', name: 'Car', cost: 100 + Math.floor(distance / 4) };
+            if (distance < 1000) return { icon: '🚂', name: 'Train', cost: 200 + Math.floor(distance / 5) };
+            if (distance < 2000) return { icon: '🛥️', name: 'Ferry', cost: 300 + Math.floor(distance / 6) };
+            if (distance < 4000) return { icon: '✈️', name: 'Regional Flight', cost: 500 + Math.floor(distance / 8) };
+            return { icon: '✈️', name: 'International Flight', cost: 800 + Math.floor(distance / 10) };
+        }
+
+        // Initialize Three.js
+        function initThreeJS() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x000814);
+
+            camera = new THREE.PerspectiveCamera(
+                60,
+                window.innerWidth / window.innerHeight,
+                0.1,
+                1000
+            );
+            camera.position.set(0, 0.5, 2.5); // Slightly elevated view
+            camera.lookAt(0, 0, 0);
+
+            renderer = new THREE.WebGLRenderer({ 
+                canvas: document.getElementById('canvas'),
+                antialias: true 
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+
+            // Lighting - more ambient light to ensure globe is visible
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
+            directionalLight.position.set(5, 3, 5);
+            scene.add(directionalLight);
+
+            // Create globe with simple color for now
+            const geometry = new THREE.SphereGeometry(1, 64, 64);
+            
+            // Create a simple blue/green globe material
+            const material = new THREE.MeshPhongMaterial({
+                color: 0x2a5298,
+                emissive: 0x112244,
+                shininess: 10,
+                specular: 0x222222
+            });
+
+            globe = new THREE.Mesh(geometry, material);
+            
+            // Initial rotation to show Stockholm/Europe properly
+            // Stockholm is at 18°E, so we need -(18 + 90) to center it
+            globe.rotation.y = -(18 + 90) * (Math.PI / 180);
+            globe.rotation.x = -0.1; // Slight tilt down
+            
+            scene.add(globe);
+
+            // Try to load Earth texture (but don't fail if it doesn't work)
+            const textureLoader = new THREE.TextureLoader();
+            textureLoader.load(
+                'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/earth_atmos_2048.jpg',
+                (texture) => {
+                    globe.material.map = texture;
+                    globe.material.needsUpdate = true;
+                },
+                undefined,
+                (error) => {
+                    console.log('Earth texture failed to load, using fallback color');
+                }
+            );
+
+            // Add stars
+            const starsGeometry = new THREE.BufferGeometry();
+            const starsMaterial = new THREE.PointsMaterial({
+                color: 0xffffff,
+                size: 0.02,
+                transparent: true,
+                opacity: 0.8
+            });
+
+            const starsVertices = [];
+            for (let i = 0; i < 10000; i++) {
+                const x = (Math.random() - 0.5) * 2000;
+                const y = (Math.random() - 0.5) * 2000;
+                const z = -Math.random() * 2000;
+                starsVertices.push(x, y, z);
+            }
+
+            starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starsVertices, 3));
+            const stars = new THREE.Points(starsGeometry, starsMaterial);
+            scene.add(stars);
+
+            // Touch/mouse rotation
+            function handleStart(event) {
+                isDragging = true;
+                if (event.touches) {
+                    previousMousePosition = {
+                        x: event.touches[0].clientX,
+                        y: event.touches[0].clientY
+                    };
+                } else {
+                    previousMousePosition = {
+                        x: event.clientX,
+                        y: event.clientY
+                    };
+                }
+            }
+
+            function handleMove(event) {
+                if (!isDragging) return;
+
+                let currentMousePosition;
+                if (event.touches) {
+                    currentMousePosition = {
+                        x: event.touches[0].clientX,
+                        y: event.touches[0].clientY
+                    };
+                } else {
+                    currentMousePosition = {
+                        x: event.clientX,
+                        y: event.clientY
+                    };
+                }
+
+                const deltaMove = {
+                    x: currentMousePosition.x - previousMousePosition.x,
+                    y: currentMousePosition.y - previousMousePosition.y
+                };
+
+                globe.rotation.y += deltaMove.x * 0.005;
+                globe.rotation.x += deltaMove.y * 0.005;
+
+                previousMousePosition = currentMousePosition;
+            }
+
+            function handleEnd() {
+                isDragging = false;
+            }
+
+            renderer.domElement.addEventListener('mousedown', handleStart);
+            renderer.domElement.addEventListener('mousemove', handleMove);
+            renderer.domElement.addEventListener('mouseup', handleEnd);
+            renderer.domElement.addEventListener('touchstart', handleStart);
+            renderer.domElement.addEventListener('touchmove', handleMove);
+            renderer.domElement.addEventListener('touchend', handleEnd);
+
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        // Add city dot with label for major cities
+        function addCityDot(lat, lon, name = null, isImportant = false) {
+            const position = latLonToVector3(lat, lon, 1.005);
+            
+            const dotGeometry = new THREE.SphereGeometry(isImportant ? 0.008 : 0.005, 8, 8);
+            const dotMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0xffffff,
+                opacity: isImportant ? 0.9 : 0.6,
+                transparent: true
+            });
+            const dot = new THREE.Mesh(dotGeometry, dotMaterial);
+            dot.position.copy(position);
+            
+            // Add as child of globe
+            globe.add(dot);
+            cityDots.push(dot);
+            
+            // Add label for important cities
+            if (name && isImportant) {
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.width = 256;
+                canvas.height = 64;
+                
+                context.font = 'bold 32px Arial'; // Increased from 24px
+                context.fillStyle = 'white';
+                context.strokeStyle = 'black';
+                context.lineWidth = 2;
+                context.textAlign = 'center';
+                context.strokeText(name, 128, 40);
+                context.fillText(name, 128, 40);
+                
+                const texture = new THREE.CanvasTexture(canvas);
+                const spriteMaterial = new THREE.SpriteMaterial({ 
+                    map: texture,
+                    transparent: true,
+                    opacity: 0.9
+                });
+                const sprite = new THREE.Sprite(spriteMaterial);
+                
+                const labelPosition = latLonToVector3(lat, lon, 1.12); // Slightly further out
+                sprite.position.copy(labelPosition);
+                sprite.scale.set(0.4, 0.1, 1); // Increased scale
+                
+                globe.add(sprite);
+                cityLabels.push(sprite);
+            }
+            
+            return dot;
+        }
+
+        // Update team labels
+        function updateTeamLabels() {
+            // Remove old team labels
+            teamLabels.forEach(label => globe.remove(label));
+            teamLabels = [];
+            
+            // Add new team labels
+            teams.forEach((team, index) => {
+                const location = locations[team.currentLocation];
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.width = 320; // Increased canvas size
+                canvas.height = 80;
+                
+                context.font = 'bold 36px Arial'; // Increased from 28px
+                context.fillStyle = getTeamColorHex(index);
+                context.strokeStyle = 'black';
+                context.lineWidth = 4;
+                context.textAlign = 'center';
+                context.strokeText(team.name, 160, 50);
+                context.fillText(team.name, 160, 50);
+                
+                const texture = new THREE.CanvasTexture(canvas);
+                const spriteMaterial = new THREE.SpriteMaterial({ 
+                    map: texture,
+                    transparent: true
+                });
+                const sprite = new THREE.Sprite(spriteMaterial);
+                
+                const labelPosition = latLonToVector3(location.lat, location.lon, 1.18); // Further out
+                sprite.position.copy(labelPosition);
+                sprite.scale.set(0.5, 0.125, 1); // Increased scale
+                
+                globe.add(sprite);
+                teamLabels.push(sprite);
+            });
+        }
+
+        // Get team color as hex string
+        function getTeamColorHex(index) {
+            const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00'];
+            return colors[index % colors.length];
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // Setup team selection
+        document.getElementById('teamCount').addEventListener('change', (e) => {
+            const count = parseInt(e.target.value);
+            const container = document.getElementById('teamSetupContainer');
+            container.innerHTML = '';
+            
+            for (let i = 0; i < count; i++) {
+                container.innerHTML += `
+                    <div class="team-setup">
+                        <label>Team ${i + 1} Name:</label>
+                        <input type="text" id="team${i + 1}Name" placeholder="Enter team name" value="Team ${i + 1}">
+                    </div>
+                `;
+            }
+        });
+
+        // Start game
+        function startGame() {
+            const teamCount = parseInt(document.getElementById('teamCount').value);
+            teams = [];
+            
+            for (let i = 0; i < teamCount; i++) {
+                const teamName = document.getElementById(`team${i + 1}Name`).value || `Team ${i + 1}`;
+                teams.push({
+                    name: teamName,
+                    money: 1000,
+                    totalDistance: 0,
+                    currentLocation: 'stockholm',
+                    locations: ['stockholm']
+                });
+            }
+
+            document.getElementById('setupScreen').style.display = 'none';
+            document.getElementById('header').style.display = 'flex';
+            document.getElementById('locationInfo').style.display = 'block';
+            
+            // Add city dots and labels for major cities
+            const majorCities = ['stockholm', 'london', 'paris', 'newyork', 'tokyo', 'sydney', 'beijing', 'moscow', 'cairo', 'riodejaneiro'];
+            
+            Object.entries(locations).forEach(([key, location]) => {
+                const isImportant = majorCities.includes(key);
+                const displayName = isImportant ? location.name.split(',')[0] : null;
+                addCityDot(location.lat, location.lon, displayName, isImportant);
+            });
+            
+            updateUI();
+            
+            // Add starting marker for each team
+            teams.forEach((team, index) => {
+                const color = getTeamColor(index);
+                addLocationMarker(locations.stockholm.lat, locations.stockholm.lon, color);
+            });
+            
+            updateTeamLabels();
+            focusGlobeOnLocation(locations.stockholm);
+            
+            // Start with travel options instead of question
+            setTimeout(() => showTravelOptions(), 1000);
+        }
+
+        // Get team color
+        function getTeamColor(index) {
+            const colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00];
+            return colors[index % colors.length];
+        }
+
+        // Update UI
+        function updateUI() {
+            const teamInfoContainer = document.getElementById('teamInfoContainer');
+            teamInfoContainer.innerHTML = '';
+            
+            teams.forEach((team, index) => {
+                const isActive = index === currentTeamIndex;
+                const currentLoc = locations[team.currentLocation];
+                teamInfoContainer.innerHTML += `
+                    <div class="team-info" style="${isActive ? 'background: rgba(74, 222, 128, 0.2); border-color: #4ade80;' : ''}">
+                        <div class="team-name">${team.name}</div>
+                        <div class="team-money">💰 $${team.money}</div>
+                        <div class="team-distance">📍 ${Math.round(team.totalDistance)} km</div>
+                        <div class="team-location">📌 ${currentLoc.name}</div>
+                    </div>
+                `;
+            });
+            
+            document.getElementById('currentTurn').textContent = currentTurn;
+            document.getElementById('maxTurns').textContent = maxTurns;
+            document.getElementById('turnsLeft').textContent = maxTurns - currentTurn;
+            
+            // Show current team's location
+            const currentTeam = teams[currentTeamIndex];
+            document.getElementById('locationName').textContent = locations[currentTeam.currentLocation].name;
+        }
+
+        // ─────────────────────────────────────────────
+        // Generate AI question (Gemini 2.5 Flash)
+        // ─────────────────────────────────────────────
+        async function generateQuestion() {
+        const currentTeam = teams[currentTeamIndex];
+
+        /* Which city should inspire the quiz?
+            – If the team has already bought a ticket this turn, use THAT destination;
+            – otherwise use the place where they’re currently standing. */
+        const activeLocation = pendingDestination
+                ? locations[pendingDestination.key]
+                : locations[currentTeam.currentLocation];
+
+        // Pick a random category & difficulty
+        const themes = ['Geography', 'History', 'Culture', 'Science', 'Sports',
+                        'Entertainment', 'Food', 'Architecture', 'Nature', 'Economy'];
+        const theme = themes[Math.floor(Math.random() * themes.length)];
+        // “a little bit difficult” by default; crank it up for local-job challenges
+        const difficulty = isLocalJob ? 'hard' : 'medium-hard';
+
+        // Strict JSON-only contract for Gemini
+        const prompt = `Generate a ${difficulty} trivia question. \
+        The subject matter MUST be clearly connected to ${activeLocation.name} \
+        (history, geography, culture, famous events, etc.). \
+        Category: ${theme}. Respond **only** with JSON:
+        {
+        "question": "…",
+        "answers": ["A","B","C","D"],
+        "correct": 0,
+        "theme": "${theme}"
+        }
+        Rules:
+        - Exactly four answers.
+        - Randomise which index is correct (0–3).
+        - Family-friendly.
+        - No extra text outside the JSON.`;
+
+        try {
+            const responseText = await geminiStreamJSON(prompt);
+            const parsed = JSON.parse(responseText);
+            if (
+            parsed?.question &&
+            Array.isArray(parsed.answers) && parsed.answers.length === 4 &&
+            Number.isInteger(parsed.correct) && parsed.correct >= 0 && parsed.correct <= 3
+            ) {
+            return parsed;
+            }
+        } catch (err) {
+            console.error('Gemini failed → using fallback', err);
+        }
+
+        /* ===== fallback pool (unchanged) ===== */
+        const fallback = [
+            { question: 'What is the largest planet in our solar system?',
+            answers: ['Jupiter', 'Saturn', 'Neptune', 'Earth'], correct: 0 },
+            // … keep the rest of your hard-coded questions …
+        ];
+        const q = fallback[Math.floor(Math.random() * fallback.length)];
+        // shuffle answers so the correct index moves
+        const shuffled = q.answers.slice();
+        const correctAns = shuffled[q.correct];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return {
+            question: q.question,
+            answers: shuffled,
+            correct: shuffled.indexOf(correctAns),
+            theme: 'General Knowledge'
+        };
+        }
+
+        // ─────────────────────────────────────────────
+        // Show question UI
+        // ─────────────────────────────────────────────
+        async function showQuestion() {
+        const question = await generateQuestion();
+        window.lastQuestion = question; // Store for answer checking
+
+        const panel       = document.getElementById('questionPanel');
+        const questionTxt = document.getElementById('questionText');
+        const answersGrid = document.getElementById('answersGrid');
+
+        if (isLocalJob) {
+            questionTxt.innerHTML =
+            `<div style="color:#3b82f6;margin-bottom:10px;">💼 LOCAL JOB CHALLENGE</div>${question.question}`;
+        } else {
+            questionTxt.textContent = question.question;
+        }
+
+        answersGrid.innerHTML = '';
+
+        question.answers.forEach((answer, idx) => {
+            const btn = document.createElement('button');
+            btn.className = 'answer-btn';
+            btn.textContent = answer;
+            btn.onclick = (e) => checkAnswer(idx === question.correct, e.target);
+            answersGrid.appendChild(btn);
+        });
+
+        panel.classList.add('active');
+        startTimer();
+        }
+
+        // Timer
+        function startTimer() {
+            let timeLeft = 120;
+            document.getElementById('timer').textContent = timeLeft;
+            
+            questionTimer = setInterval(() => {
+                timeLeft--;
+                document.getElementById('timer').textContent = timeLeft;
+                
+                if (timeLeft <= 0) {
+                    clearInterval(questionTimer);
+                    checkAnswer(false, null);
+                }
+            }, 1000);
+        }
+
+        // Check answer
+        function checkAnswer(isCorrect, clickedButton) {
+            clearInterval(questionTimer);
+            
+            const currentTeam = teams[currentTeamIndex];
+            const buttons = document.querySelectorAll('.answer-btn');
+            
+            buttons.forEach(btn => btn.disabled = true);
+            
+            // Store the correct answer button for highlighting
+            let correctButton = null;
+            buttons.forEach((btn, index) => {
+                if (index === window.lastQuestion.correct) {
+                    correctButton = btn;
+                }
+            });
+            
+            if (isLocalJob) {
+                if (isCorrect) {
+                    const earnings = 400 + Math.floor(Math.random() * 400); // $400-800
+                    currentTeam.money += earnings;
+                    if (clickedButton) clickedButton.classList.add('correct');
+                } else {
+                    const earnings = 200; // Minimum earnings for trying
+                    currentTeam.money += earnings;
+                    if (clickedButton) clickedButton.classList.add('incorrect');
+                }
+                isLocalJob = false;
+            } else if (pendingDestination) {
+                // Travel question
+                if (isCorrect) {
+                    currentTeam.money += 300; // Bonus for correct answer
+                    if (clickedButton) clickedButton.classList.add('correct');
+                    
+                    // Execute the travel
+                    currentTeam.totalDistance += pendingDestination.distance;
+                    currentTeam.locations.push(pendingDestination.key);
+                    
+                    // Draw travel line
+                    drawTravelLine(
+                        locations[currentTeam.currentLocation], 
+                        locations[pendingDestination.key],
+                        getTeamColor(currentTeamIndex)
+                    );
+                    
+                    // Update current location
+                    currentTeam.currentLocation = pendingDestination.key;
+                    
+                    // Add marker for new location
+                    addLocationMarker(
+                        locations[pendingDestination.key].lat, 
+                        locations[pendingDestination.key].lon, 
+                        getTeamColor(currentTeamIndex)
+                    );
+                    
+                    // Focus globe on new location
+                    focusGlobeOnLocation(locations[pendingDestination.key]);
+                } else {
+                    // Wrong answer - stay in place but still pay
+                    if (clickedButton) clickedButton.classList.add('incorrect');
+                }
+                
+                pendingDestination = null;
+            } else {
+                // Regular question
+                if (isCorrect) {
+                    currentTeam.money += 500;
+                    if (clickedButton) clickedButton.classList.add('correct');
+                } else {
+                    currentTeam.money += 100; // Consolation prize
+                    if (clickedButton) clickedButton.classList.add('incorrect');
+                }
+            }
+            
+            // Blink the correct answer if user was wrong
+            if (correctButton && !isCorrect) {
+                let blinkCount = 0;
+                const blinkInterval = setInterval(() => {
+                    correctButton.classList.toggle('correct');
+                    blinkCount++;
+                    if (blinkCount >= 6) { // Blink 3 times
+                        clearInterval(blinkInterval);
+                        correctButton.classList.add('correct');
+                    }
+                }, 300);
+            }
+            
+            updateUI();
+            updateTeamLabels();
+            
+            setTimeout(() => {
+                document.getElementById('questionPanel').classList.remove('active');
+                nextTurn();
+            }, 3000); // Increased delay to see the correct answer
+        }
+
+        // Take local job
+        function takeLocalJob() {
+            // Clear preview curves
+            previewCurves.forEach(curve => globe.remove(curve));
+            previewCurves = [];
+            
+            document.getElementById('travelOptions').classList.remove('active');
+            isLocalJob = true;
+            showQuestion();
+        }
+
+        // Show travel options
+        function showTravelOptions() {
+            const currentTeam = teams[currentTeamIndex];
+            const currentCoords = locations[currentTeam.currentLocation];
+            const ticketsGrid = document.getElementById('ticketsGrid');
+            ticketsGrid.innerHTML = '';
+            
+            // Clear previous preview curves
+            previewCurves.forEach(curve => scene.remove(curve));
+            previewCurves = [];
+            
+            // Create array of destinations sorted by distance
+            const destinations = Object.entries(locations)
+                .filter(([key, _]) => key !== currentTeam.currentLocation)
+                .map(([key, destination]) => {
+                    const distance = calculateDistance(
+                        currentCoords.lat, 
+                        currentCoords.lon, 
+                        destination.lat, 
+                        destination.lon
+                    );
+                    return { key, destination, distance };
+                })
+                .sort((a, b) => a.distance - b.distance);
+            
+            // Show closest 15 destinations
+            destinations.slice(0, 15).forEach(({ key, destination, distance }) => {
+                const transport = getTransport(distance);
+                const canAfford = currentTeam.money >= transport.cost;
+                
+                // Draw preview curve for this destination
+                const curveColor = canAfford ? 0x4ade80 : 0xff6b6b;
+                const curve = drawPreviewCurve(currentCoords, destination, curveColor, canAfford ? 0.5 : 0.2);
+                previewCurves.push(curve);
+                
+                const ticket = document.createElement('div');
+                ticket.className = `ticket ${!canAfford ? 'disabled' : ''}`;
+                ticket.innerHTML = `
+                    <div class="ticket-icon">${transport.icon}</div>
+                    <div class="ticket-destination">${destination.name}</div>
+                    <div style="font-size: 0.9em; color: #94a3b8;">${transport.name}</div>
+                    <div class="ticket-distance">${Math.round(distance)} km</div>
+                    <div class="ticket-cost">${transport.cost}</div>
+                `;
+                
+                if (canAfford) {
+                    ticket.onclick = () => travel(key, distance, transport.cost);
+                    
+                    // Highlight curve on hover
+                    ticket.onmouseenter = () => {
+                        curve.material.opacity = 0.8;
+                        curve.material.linewidth = 3;
+                    };
+                    ticket.onmouseleave = () => {
+                        curve.material.opacity = 0.5;
+                        curve.material.linewidth = 2;
+                    };
+                }
+                
+                ticketsGrid.appendChild(ticket);
+            });
+            
+            document.getElementById('travelOptions').classList.add('active');
+        }
+
+        // Draw preview curve
+        function drawPreviewCurve(from, to, color, opacity) {
+            const points = [];
+            const segments = 30;
+
+            for (let i = 0; i <= segments; i++) {
+                const t = i / segments;
+                const lat = from.lat + (to.lat - from.lat) * t;
+                const lon = from.lon + (to.lon - from.lon) * t;
+                
+                // Add some height to make it a curve
+                const height = 1.02 + Math.sin(t * Math.PI) * 0.1;
+                const position = latLonToVector3(lat, lon, height);
+                points.push(position);
+            }
+
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const material = new THREE.LineBasicMaterial({ 
+                color: color,
+                linewidth: 2,
+                transparent: true,
+                opacity: opacity
+            });
+            
+            const curve = new THREE.Line(geometry, material);
+            globe.add(curve);
+            
+            return curve;
+        }
+
+        // Travel to new location
+        function travel(destinationKey, distance, cost) {
+            const currentTeam = teams[currentTeamIndex];
+            
+            // Deduct money immediately
+            currentTeam.money -= cost;
+            
+            // Store destination for after question
+            pendingDestination = {
+                key: destinationKey,
+                distance: distance,
+                cost: cost
+            };
+            
+            // Clear preview curves
+            previewCurves.forEach(curve => scene.remove(curve));
+            previewCurves = [];
+            
+            document.getElementById('travelOptions').classList.remove('active');
+            
+            // Show question for the destination
+            showQuestion();
+        }
+
+        // Next turn
+        function nextTurn() {
+            currentTeamIndex++;
+            if (currentTeamIndex >= teams.length) {
+                currentTeamIndex = 0;
+                currentTurn++;
+                
+                if (currentTurn > maxTurns) {
+                    endGame();
+                    return;
+                }
+            }
+            
+            updateUI();
+            updateTeamLabels();
+            
+            // Focus on current team's location
+            const currentTeam = teams[currentTeamIndex];
+            focusGlobeOnLocation(locations[currentTeam.currentLocation]);
+            
+            setTimeout(() => showTravelOptions(), 2000);
+        }
+
+        // Calculate distance between two points on Earth
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Earth's radius in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        // Convert lat/lon to 3D coordinates
+        function latLonToVector3(lat, lon, radius = 1) {
+            const phi = (90 - lat) * (Math.PI / 180);
+            const theta = (lon + 180) * (Math.PI / 180);
+            
+            const x = -(radius * Math.sin(phi) * Math.cos(theta));
+            const y = radius * Math.cos(phi);
+            const z = radius * Math.sin(phi) * Math.sin(theta);
+            
+            return new THREE.Vector3(x, y, z);
+        }
+
+        // Add location marker
+        function addLocationMarker(lat, lon, color = 0xff0000) {
+            const position = latLonToVector3(lat, lon, 1.02);
+            
+            const markerGeometry = new THREE.SphereGeometry(0.02, 16, 16);
+            const markerMaterial = new THREE.MeshBasicMaterial({ 
+                color,
+                emissive: color,
+                emissiveIntensity: 0.5
+            });
+            const marker = new THREE.Mesh(markerGeometry, markerMaterial);
+            marker.position.copy(position);
+            
+            // Add marker as child of globe so it rotates with it
+            globe.add(marker);
+            markers.push(marker);
+            
+            // Add pulsing effect
+            marker.userData.pulse = 0;
+            
+            return marker;
+        }
+
+        // Draw travel line between locations
+        function drawTravelLine(from, to, color = 0x00ff00) {
+            const points = [];
+            const segments = 50;
+
+            for (let i = 0; i <= segments; i++) {
+                const t = i / segments;
+                const lat = from.lat + (to.lat - from.lat) * t;
+                const lon = from.lon + (to.lon - from.lon) * t;
+                
+                // Add height to create an arc
+                const height = 1.02 + Math.sin(t * Math.PI) * 0.15;
+                const position = latLonToVector3(lat, lon, height);
+                points.push(position);
+            }
+
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const material = new THREE.LineBasicMaterial({ 
+                color: color,
+                linewidth: 3,
+                transparent: true,
+                opacity: 0.8
+            });
+            
+            const travelLine = new THREE.Line(geometry, material);
+            globe.add(travelLine);
+            travelLines.push(travelLine);
+        }
+
+		// === Ny exakt centrerings-funktion ===
+		function focusGlobeOnLocation(location, duration = 1500) {
+			isAnimatingRotation = true;
+
+			// 1. Vektor till m�lpunkten i globens lokal�koordinater
+			const localTarget = latLonToVector3(location.lat, location.lon, 1).normalize();
+
+			// 2. Samma punkt i v�rld�koordinater (med nuvarande orientering)
+			const worldTarget = localTarget.clone().applyQuaternion(globe.quaternion).normalize();
+
+			// 3. Vektorn fr�n globens centrum mot kameran
+			const cameraDir = camera.position.clone().normalize(); // (0,0,1) i ditt fall
+
+			// 4. Quaternion som roterar worldTarget ? cameraDir
+			const qRot = new THREE.Quaternion().setFromUnitVectors(worldTarget, cameraDir);
+
+			// 5. Tweena snyggt mellan start- och slut�orientering
+			const startQuat = globe.quaternion.clone();
+			const endQuat   = qRot.multiply(startQuat);
+
+			const startTime = performance.now();
+			(function animateRotation(now) {
+				const t = Math.min((now - startTime) / duration, 1);
+				THREE.Quaternion.slerp(startQuat, endQuat, globe.quaternion, t);
+				if (t < 1) {
+					requestAnimationFrame(animateRotation);
+				} else {
+					isAnimatingRotation = false;
+				}
+			})(startTime);
+		}
+
+
+        // End game
+        function endGame() {
+            const finalScores = document.getElementById('finalScores');
+            finalScores.innerHTML = '';
+            
+            // Sort teams by distance
+            const sortedTeams = [...teams].sort((a, b) => b.totalDistance - a.totalDistance);
+            
+            sortedTeams.forEach((team, index) => {
+                const isWinner = index === 0;
+                finalScores.innerHTML += `
+                    <div class="score-item ${isWinner ? 'winner' : ''}">
+                        <div>
+                            <div style="font-size: 1.2em; font-weight: bold;">${team.name}</div>
+                            <div style="color: #94a3b8; font-size: 0.9em;">Money: $${team.money}</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 1.3em; color: #fbbf24;">${Math.round(team.totalDistance)} km</div>
+                            <div style="color: #94a3b8; font-size: 0.9em;">${team.locations.length} locations</div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            document.getElementById('gameOverScreen').classList.add('active');
+        }
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            
+            // Animate markers
+            markers.forEach(marker => {
+                marker.userData.pulse += 0.05;
+                const scale = 1 + Math.sin(marker.userData.pulse) * 0.2;
+                marker.scale.set(scale, scale, scale);
+            });
+            
+            // Update sprite rotations to face camera
+            [...cityLabels, ...teamLabels].forEach(sprite => {
+                if (sprite) {
+                    sprite.quaternion.copy(camera.quaternion);
+                }
+            });
+            
+            renderer.render(scene, camera);
+        }
+
+        // Initialize game
+        initThreeJS();
+        animate();
+    </script>
+</body>
+</html>
